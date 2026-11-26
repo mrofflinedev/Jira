@@ -14,21 +14,41 @@ function Auth({ onLoginSuccess }) {
     setError('');
     setLoading(true);
 
+    const cleanUsername = username.trim();
+
     try {
       if (isRegister) {
-        await api.post('register/', { username, email, password });
+        await api.post('register/', {
+          username: cleanUsername,
+          email: email.trim(),
+          password,
+        });
       }
-      const res = await api.post('token/', { username, password });
+      const res = await api.post('token/', {
+        username: cleanUsername,
+        password,
+      });
       localStorage.setItem('access_token', res.data.access);
       localStorage.setItem('refresh_token', res.data.refresh);
-      localStorage.setItem('username', username);
-      onLoginSuccess(username);
+      localStorage.setItem('username', cleanUsername);
+      onLoginSuccess(cleanUsername);
     } catch (err) {
-      setError(
-        isRegister
-          ? 'Username already taken or invalid details.'
-          : 'Incorrect username or password.'
-      );
+      const data = err.response?.data;
+      if (data?.username) {
+        setError(`Username: ${data.username[0]}`);
+      } else if (data?.password) {
+        setError(`Password: ${data.password[0]}`);
+      } else if (data?.detail) {
+        setError(data.detail);
+      } else if (!err.response) {
+        setError('Cannot reach server. If Render was asleep, wait 30s and click again.');
+      } else {
+        setError(
+          isRegister
+            ? 'Registration failed. Try a unique username.'
+            : 'Invalid username or password.'
+        );
+      }
     } finally {
       setLoading(false);
     }
