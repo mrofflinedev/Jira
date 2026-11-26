@@ -110,7 +110,6 @@ function App() {
     return <Auth onLoginSuccess={(user) => setCurrentUser(user)} />;
   }
 
-  // Filter logic
   const filteredIssues = issues.filter((issue) => {
     const matchesSearch =
       issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -119,7 +118,6 @@ function App() {
     return matchesSearch && matchesPriority;
   });
 
-  // Summary counts for the friendly stats bar
   const todoCount = issues.filter((i) => i.status === 'TODO').length;
   const progressCount = issues.filter((i) => i.status === 'IN_PROGRESS').length;
   const doneCount = issues.filter((i) => i.status === 'DONE').length;
@@ -159,7 +157,7 @@ function App() {
         </div>
       </header>
 
-      {/* Friendly Summary Stats Strip */}
+      {/* Summary Stats Strip */}
       <div className="stats-strip">
         <div className="stat-box">
           <span className="stat-label">Total Issues</span>
@@ -288,4 +286,109 @@ function App() {
                         <span className="meta-date">{formatDate(issue.created_at)}</span>
                       </div>
 
-                      <select
+                                            <select
+                        value={issue.status}
+                        onClick={(e) => e.stopPropagation()}
+                        onChange={(e) => handleStatusChange(issue.id, e.target.value)}
+                        className="status-select"
+                      >
+                        <option value="TODO">Move to: To Do</option>
+                        <option value="IN_PROGRESS">Move to: In Progress</option>
+                        <option value="DONE">Move to: Done</option>
+                      </select>
+                    </div>
+                  ))
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Edit Issue Modal */}
+      {editingIssue && (
+        <div className="modal-overlay" onClick={() => setEditingIssue(null)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <div>
+                <span className="issue-key">JIRA-{editingIssue.id}</span>
+                <h2>Edit Issue Details</h2>
+              </div>
+              <button className="delete-btn" onClick={() => setEditingIssue(null)}>
+                ×
+              </button>
+            </div>
+            <form onSubmit={handleUpdateIssue} className="modal-form">
+              <label>Summary</label>
+              <input
+                type="text"
+                value={editingIssue.title}
+                onChange={(e) =>
+                  setEditingIssue({ ...editingIssue, title: e.target.value })
+                }
+                required
+              />
+
+              <label>Description</label>
+              <textarea
+                rows="4"
+                placeholder="Add more context..."
+                value={editingIssue.description}
+                onChange={(e) =>
+                  setEditingIssue({ ...editingIssue, description: e.target.value })
+                }
+              />
+
+              <div className="modal-row">
+                <div>
+                  <label>Priority</label>
+                  <select
+                    value={editingIssue.priority}
+                    onChange={(e) =>
+                      setEditingIssue({ ...editingIssue, priority: e.target.value })
+                    }
+                  >
+                    <option value="LOW">Low</option>
+                    <option value="MEDIUM">Medium</option>
+                    <option value="HIGH">High</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label>Status</label>
+                  <select
+                    value={editingIssue.status}
+                    onChange={(e) =>
+                      setEditingIssue({ ...editingIssue, status: e.target.value })
+                    }
+                  >
+                    <option value="TODO">To Do</option>
+                    <option value="IN_PROGRESS">In Progress</option>
+                    <option value="DONE">Done</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="cancel-btn"
+                  onClick={() => setEditingIssue(null)}
+                >
+                  Cancel
+                </button>
+                <button type="submit" className="save-btn">
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default App;
+
+              
