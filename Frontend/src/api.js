@@ -1,7 +1,13 @@
-import axios from 'axios';
+﻿import axios from 'axios';
+
+const isLocalhost =
+  window.location.hostname === 'localhost' ||
+  window.location.hostname === '127.0.0.1';
 
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000/api/',
+  baseURL: isLocalhost
+    ? 'http://localhost:8000/api/'
+    : 'https://onrender.com',
 });
 
 api.interceptors.request.use(
