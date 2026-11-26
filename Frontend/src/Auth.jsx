@@ -1,4 +1,4 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import api from './api';
 
 function Auth({ onLoginSuccess }) {
@@ -26,8 +26,8 @@ function Auth({ onLoginSuccess }) {
     } catch (err) {
       setError(
         isRegister
-          ? 'Could not create account. Try a different username.'
-          : 'Invalid username or password. Please try again.'
+          ? 'Username already taken or invalid details.'
+          : 'Incorrect username or password.'
       );
     } finally {
       setLoading(false);
@@ -36,37 +36,18 @@ function Auth({ onLoginSuccess }) {
 
   return (
     <div className="auth-container">
-      <div className="auth-wrapper">
-        {/* Friendly Left Intro Panel */}
-        <div className="auth-intro">
-          <div className="brand-mark">
-            <span className="brand-square"></span>
-            <span>Jira Workspace</span>
-          </div>
-          <h1>Plan, track, and ship your work without the clutter.</h1>
-          <p className="auth-subtitle">
-            A lightweight Kanban board built for fast-moving projects. Organize tasks by priority, track progress across columns, and keep every issue in one place.
-          </p>
-          <ul className="auth-highlights">
-            <li>
-              <strong>3-Stage Workflow</strong> — Move tasks effortlessly from To Do to Done.
-            </li>
-            <li>
-              <strong>Priority Triage</strong> — Spot high-priority blockers at a glance.
-            </li>
-            <li>
-              <strong>Instant Search & Edit</strong> — Click any card to update details anytime.
-            </li>
-          </ul>
+      <div className="auth-box">
+        <div className="auth-logo">
+          <span className="brand-square"></span>
+          <span>Jira</span>
         </div>
 
-        {/* Clean Right Login/Register Card */}
         <div className="auth-card">
-          <h2>{isRegister ? 'Create your account' : 'Welcome back'}</h2>
+          <h2>{isRegister ? 'Create your workspace' : 'Sign in to Jira'}</h2>
           <p className="auth-card-sub">
             {isRegister
-              ? 'Sign up in seconds to start managing your board.'
-              : 'Enter your credentials to open your workspace.'}
+              ? 'Get started with your personal Kanban board.'
+              : 'Welcome back. Enter your details to continue.'}
           </p>
 
           {error && <p className="auth-error">{error}</p>}
@@ -75,7 +56,7 @@ function Auth({ onLoginSuccess }) {
             <label>Username</label>
             <input
               type="text"
-              placeholder="e.g. collins"
+              placeholder="Enter your username"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               required
@@ -83,7 +64,7 @@ function Auth({ onLoginSuccess }) {
 
             {isRegister && (
               <>
-                <label>Email Address</label>
+                <label>Email</label>
                 <input
                   type="email"
                   placeholder="you@example.com (optional)"
@@ -96,7 +77,7 @@ function Auth({ onLoginSuccess }) {
             <label>Password</label>
             <input
               type="password"
-              placeholder="••••••••"
+              placeholder="Enter your password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
@@ -104,26 +85,26 @@ function Auth({ onLoginSuccess }) {
 
             <button type="submit" disabled={loading}>
               {loading
-                ? 'Connecting to server...'
+                ? 'Connecting...'
                 : isRegister
                 ? 'Create Account'
-                : 'Sign In to Board'}
+                : 'Sign In'}
             </button>
           </form>
-
-          <p className="auth-toggle">
-            {isRegister ? 'Already have an account?' : 'New to Jira Workspace?'}{' '}
-            <button
-              type="button"
-              onClick={() => {
-                setIsRegister(!isRegister);
-                setError('');
-              }}
-            >
-              {isRegister ? 'Sign in here' : 'Create an account'}
-            </button>
-          </p>
         </div>
+
+        <p className="auth-toggle">
+          {isRegister ? 'Already have an account?' : "Don't have an account?"}{' '}
+          <button
+            type="button"
+            onClick={() => {
+              setIsRegister(!isRegister);
+              setError('');
+            }}
+          >
+            {isRegister ? 'Sign in' : 'Create an account'}
+          </button>
+        </p>
       </div>
     </div>
   );
