@@ -1,432 +1,291 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useState, useEffect } from 'react';
 import api from './api';
-import Auth from './Auth.jsx';
+import Auth from './Auth';
 import './App.css';
 
-const COLUMNS = [
-  { key: 'TODO', label: 'To Do' },
-  { key: 'IN_PROGRESS', label: 'In Progress' },
-  { key: 'DONE', label: 'Done' },
-];
-
 function App() {
+  const [currentUser, setCurrentUser] = useState(localStorage.getItem('username'));
   const [issues, setIssues] = useState([]);
-  const [isAuthenticated, setIsAuthenticated] = useState(
-    () => Boolean(localStorage.getItem('access_token'))
-  );
-  const [username, setUsername] = useState(
-    () => localStorage.getItem('username') || ''
-  );
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  // Create form state
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState('MEDIUM');
+
+  // Search & filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('ALL');
+
+  // Edit modal state
   const [editingIssue, setEditingIssue] = useState(null);
 
-  const handleLogout = useCallback(() => {
-    ['access_token', 'refresh_token', 'username'].forEach((key) =>
-      localStorage.removeItem(key)
-    );
-    setIsAuthenticated(false);
-    setUsername('');
-    setIssues([]);
-  }, []);
-
-  const fetchIssues = useCallback(async () => {
-    setIsLoading(true);
-    setError('');
+  const fetchIssues = async () => {
+    setLoading(true);
     try {
       const response = await api.get('issues/');
-      setIssues(Array.isArray(response.data) ? response.data : []);
-    } catch (requestError) {
-      console.error('Error fetching issues:', requestError);
-      setError('Could not load issues. Please try again.');
-      if (requestError.response?.status === 401) handleLogout();
+      setIssues(response.data);
+    } catch (error) {
+      console.error('Error fetching issues:', error);
+      if (error.response && error.response.status === 401) {
+        handleLogout();
+      }
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [handleLogout]);
-
-  useEffect(() => {
-    if (isAuthenticated) fetchIssues();
-  }, [fetchIssues, isAuthenticated]);
-
-  useEffect(() => {
-    if (!editingIssue) return undefined;
-
-    const handleEscape = (event) => {
-      if (event.key === 'Escape') setEditingIssue(null);
-    };
-
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
-  }, [editingIssue]);
-
-  const handleLogin = (loggedInUsername) => {
-    setUsername(loggedInUsername);
-    setIsAuthenticated(true);
   };
 
-  const handleCreateIssue = async (event) => {
-    event.preventDefault();
+  useEffect(() => {
+    if (currentUser) {
+      fetchIssues();
+    }
+  }, [currentUser]);
+
+  const handleLogout = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.removeItem('username');
+    setCurrentUser(null);
+    setIssues([]);
+  };
+
+  const handleCreateIssue = async (e) => {
+    e.preventDefault();
     if (!title.trim()) return;
 
-    setError('');
     try {
       const response = await api.post('issues/', {
-        title: title.trim(),
-        description: description.trim(),
+        title,
+        description,
         priority,
         status: 'TODO',
       });
-      setIssues((currentIssues) => [response.data, ...currentIssues]);
+      setIssues([response.data, ...issues]);
       setTitle('');
       setDescription('');
       setPriority('MEDIUM');
-    } catch (requestError) {
-      console.error('Error creating issue:', requestError);
-      setError('Could not create the issue.');
+    } catch (error) {
+      console.error('Error creating issue:', error);
     }
   };
 
   const handleStatusChange = async (id, newStatus) => {
-    setError('');
     try {
       const response = await api.patch(`issues/${id}/`, { status: newStatus });
-      setIssues((currentIssues) =>
-        currentIssues.map((issue) => (issue.id === id ? response.data : issue))
-      );
-    } catch (requestError) {
-      console.error('Error updating status:', requestError);
-      setError('Could not update the issue status.');
+      setIssues(issues.map((issue) => (issue.id === id ? response.data : issue)));
+    } catch (error) {
+      console.error('Error updating status:', error);
     }
   };
 
-  const handleUpdateIssue = async (event) => {
-    event.preventDefault();
+  const handleUpdateIssue = async (e) => {
+    e.preventDefault();
     if (!editingIssue || !editingIssue.title.trim()) return;
 
-    setError('');
     try {
       const response = await api.patch(`issues/${editingIssue.id}/`, {
-        title: editingIssue.title.trim(),
-        description: editingIssue.description?.trim() || '',
+        title: editingIssue.title,
+        description: editingIssue.description,
         priority: editingIssue.priority,
         status: editingIssue.status,
       });
-      setIssues((currentIssues) =>
-        currentIssues.map((issue) =>
-          issue.id === editingIssue.id ? response.data : issue
-        )
-      );
+      setIssues(issues.map((issue) => (issue.id === editingIssue.id ? response.data : issue)));
       setEditingIssue(null);
-    } catch (requestError) {
-      console.error('Error updating issue:', requestError);
-      setError('Could not save the issue changes.');
+    } catch (error) {
+      console.error('Error updating issue:', error);
     }
   };
 
-  const handleDelete = async (event, id) => {
-    event.stopPropagation();
-    setError('');
+  const handleDelete = async (e, id) => {
+    e.stopPropagation();
     try {
       await api.delete(`issues/${id}/`);
-      setIssues((currentIssues) =>
-        currentIssues.filter((issue) => issue.id !== id)
-      );
-      if (editingIssue?.id === id) setEditingIssue(null);
-    } catch (requestError) {
-      console.error('Error deleting issue:', requestError);
-      setError('Could not delete the issue.');
+      setIssues(issues.filter((issue) => issue.id !== id));
+    } catch (error) {
+      console.error('Error deleting issue:', error);
     }
   };
 
-  const normalizedSearch = searchQuery.trim().toLowerCase();
+  if (!currentUser) {
+    return <Auth onLoginSuccess={(user) => setCurrentUser(user)} />;
+  }
+
+  // Filter logic
   const filteredIssues = issues.filter((issue) => {
-    const issueTitle = issue.title || '';
-    const issueDescription = issue.description || '';
     const matchesSearch =
-      !normalizedSearch ||
-      issueTitle.toLowerCase().includes(normalizedSearch) ||
-      issueDescription.toLowerCase().includes(normalizedSearch);
-    const matchesPriority =
-      priorityFilter === 'ALL' || issue.priority === priorityFilter;
+      issue.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (issue.description && issue.description.toLowerCase().includes(searchQuery.toLowerCase()));
+    const matchesPriority = priorityFilter === 'ALL' || issue.priority === priorityFilter;
     return matchesSearch && matchesPriority;
   });
 
-  if (!isAuthenticated) return <Auth onLoginSuccess={handleLogin} />;
+  // Summary counts for the friendly stats bar
+  const todoCount = issues.filter((i) => i.status === 'TODO').length;
+  const progressCount = issues.filter((i) => i.status === 'IN_PROGRESS').length;
+  const doneCount = issues.filter((i) => i.status === 'DONE').length;
+
+  const formatDate = (dateString) => {
+    if (!dateString) return 'Just now';
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  };
+
+  const columns = [
+    { key: 'TODO', label: 'To Do', emptyText: 'No pending tasks. Add one above!' },
+    { key: 'IN_PROGRESS', label: 'In Progress', emptyText: 'Nothing in progress right now.' },
+    { key: 'DONE', label: 'Done', emptyText: 'Completed issues will show up here.' },
+  ];
 
   return (
     <div className="app-container">
+      {/* Top Navbar */}
       <header className="header">
-        <h1>Jira Issue Tracker</h1>
+        <div>
+          <h1>Jira Workspace</h1>
+          <p className="welcome-text">
+            Welcome back, <strong>{currentUser}</strong> — here is what’s on your board today.
+          </p>
+        </div>
         <div className="header-right">
-          {username && <span className="user-badge">{username}</span>}
-          <button type="button" className="logout-btn" onClick={handleLogout}>
-            Log out
+          <div className="user-pill">
+            <span className="avatar-circle">{currentUser.charAt(0).toUpperCase()}</span>
+            <span>{currentUser}</span>
+          </div>
+          <button onClick={handleLogout} className="logout-btn">
+            Sign Out
           </button>
         </div>
       </header>
 
-      {error && (
-        <div className="app-error" role="alert">
-          {error}
-          <button type="button" onClick={() => setError('')} aria-label="Dismiss error">
-            ×
-          </button>
+      {/* Friendly Summary Stats Strip */}
+      <div className="stats-strip">
+        <div className="stat-box">
+          <span className="stat-label">Total Issues</span>
+          <span className="stat-value">{issues.length}</span>
         </div>
-      )}
+        <div className="stat-box">
+          <span className="stat-label">To Do</span>
+          <span className="stat-value blue">{todoCount}</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-label">In Progress</span>
+          <span className="stat-value amber">{progressCount}</span>
+        </div>
+        <div className="stat-box">
+          <span className="stat-label">Completed</span>
+          <span className="stat-value green">{doneCount}</span>
+        </div>
+      </div>
 
-      <form onSubmit={handleCreateIssue} className="issue-form">
-        <input
-          type="text"
-          placeholder="Issue summary (e.g., Fix login bug)"
-          value={title}
-          onChange={(event) => setTitle(event.target.value)}
-          maxLength={200}
-          required
-        />
-        <input
-          type="text"
-          placeholder="Description (optional)"
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-        <select
-          value={priority}
-          onChange={(event) => setPriority(event.target.value)}
-          aria-label="Issue priority"
-        >
-          <option value="LOW">Low Priority</option>
-          <option value="MEDIUM">Medium Priority</option>
-          <option value="HIGH">High Priority</option>
-        </select>
-        <button type="submit" disabled={!title.trim()}>
-          + Create Issue
-        </button>
-      </form>
+      {/* Create Issue Panel */}
+      <section className="create-section">
+        <div className="section-heading">Quick Create Issue</div>
+        <form onSubmit={handleCreateIssue} className="issue-form">
+          <input
+            type="text"
+            placeholder="What needs to be done? (e.g., Fix navbar alignment)"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            required
+          />
+          <input
+            type="text"
+            placeholder="Add extra details or acceptance criteria..."
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+          />
+          <select value={priority} onChange={(e) => setPriority(e.target.value)}>
+            <option value="LOW">Low Priority</option>
+            <option value="MEDIUM">Medium Priority</option>
+            <option value="HIGH">High Priority</option>
+          </select>
+          <button type="submit">+ Add Ticket</button>
+        </form>
+      </section>
 
+      {/* Search & Filter Toolbar */}
       <div className="filter-bar">
         <input
-          type="search"
-          placeholder="Search issues by keyword..."
+          type="text"
+          placeholder="Search tickets by title or description..."
           value={searchQuery}
-          onChange={(event) => setSearchQuery(event.target.value)}
+          onChange={(e) => setSearchQuery(e.target.value)}
           className="search-input"
         />
         <select
           value={priorityFilter}
-          onChange={(event) => setPriorityFilter(event.target.value)}
+          onChange={(e) => setPriorityFilter(e.target.value)}
           className="filter-select"
-          aria-label="Filter by priority"
         >
           <option value="ALL">All Priorities</option>
-          <option value="HIGH">High Priority Only</option>
-          <option value="MEDIUM">Medium Priority Only</option>
-          <option value="LOW">Low Priority Only</option>
+          <option value="HIGH">High Priority</option>
+          <option value="MEDIUM">Medium Priority</option>
+          <option value="LOW">Low Priority</option>
         </select>
+        {(searchQuery || priorityFilter !== 'ALL') && (
+          <button
+            type="button"
+            className="clear-filter-btn"
+            onClick={() => {
+              setSearchQuery('');
+              setPriorityFilter('ALL');
+            }}
+          >
+            Clear Filters
+          </button>
+        )}
       </div>
 
-      {isLoading ? (
-        <div className="loading-state" role="status">Loading issues...</div>
+      {/* 3-Column Kanban Board */}
+      {loading ? (
+        <div className="loading-state">Loading your workspace...</div>
       ) : (
-        <>
-          <div className="board" aria-label="Issue board">
-            {COLUMNS.map((column) => {
-              const columnIssues = filteredIssues.filter(
-                (issue) => issue.status === column.key
-              );
-              return (
-                <section key={column.key} className="column">
-                  <h2>
-                    {column.label}{' '}
-                    <span className="col-count">({columnIssues.length})</span>
-                  </h2>
-                  {columnIssues.length === 0 && (
-                    <p className="empty-column">No issues</p>
-                  )}
-                  {columnIssues.map((issue) => (
+        <div className="board">
+          {columns.map((col) => {
+            const colIssues = filteredIssues.filter((issue) => issue.status === col.key);
+            return (
+              <div key={col.key} className="column">
+                <div className="column-header">
+                  <h2>{col.label}</h2>
+                  <span className="col-badge">{colIssues.length}</span>
+                </div>
+
+                {colIssues.length === 0 ? (
+                  <div className="empty-column">{col.emptyText}</div>
+                ) : (
+                  colIssues.map((issue) => (
                     <div
                       key={issue.id}
                       className="card"
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setEditingIssue({
-                        ...issue,
-                        title: issue.title || '',
-                        description: issue.description || '',
-                        priority: issue.priority || 'MEDIUM',
-                        status: issue.status || 'TODO',
-                      })}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          setEditingIssue({
-                            ...issue,
-                            title: issue.title || '',
-                            description: issue.description || '',
-                            priority: issue.priority || 'MEDIUM',
-                            status: issue.status || 'TODO',
-                          });
-                        }
-                      }}
-                      title="Click to edit issue"
+                      onClick={() => setEditingIssue(issue)}
+                      title="Click to edit ticket details"
                     >
                       <div className="card-header">
-                        <span className={`badge ${(issue.priority || 'medium').toLowerCase()}`}>
-                          {issue.priority || 'MEDIUM'}
-                        </span>
+                        <div className="card-tags">
+                          <span className="issue-key">JIRA-{issue.id}</span>
+                          <span className={`badge ${issue.priority.toLowerCase()}`}>
+                            {issue.priority}
+                          </span>
+                        </div>
                         <button
-                          type="button"
-                          onClick={(event) => handleDelete(event, issue.id)}
+                          onClick={(e) => handleDelete(e, issue.id)}
                           className="delete-btn"
                           title="Delete issue"
-                          aria-label={`Delete ${issue.title || 'issue'}`}
                         >
                           ×
                         </button>
                       </div>
+
                       <h3>{issue.title}</h3>
                       {issue.description && <p>{issue.description}</p>}
+
+                      <div className="card-meta">
+                        <span className="meta-user">
+                          Assigned: <strong>{issue.assignee_username || currentUser}</strong>
+                        </span>
+                        <span className="meta-date">{formatDate(issue.created_at)}</span>
+                      </div>
+
                       <select
-                        value={issue.status || 'TODO'}
-                        onClick={(event) => event.stopPropagation()}
-                        onChange={(event) =>
-                          handleStatusChange(issue.id, event.target.value)
-                        }
-                        className="status-select"
-                        aria-label={`Status for ${issue.title}`}
-                      >
-                        <option value="TODO">To Do</option>
-                        <option value="IN_PROGRESS">In Progress</option>
-                        <option value="DONE">Done</option>
-                      </select>
-                    </div>
-                  ))}
-                </section>
-              );
-            })}
-          </div>
-          {filteredIssues.length === 0 && issues.length > 0 && (
-            <p className="no-results">No issues match the current filters.</p>
-          )}
-        </>
-      )}
-
-      {editingIssue && (
-        <div
-          className="modal-overlay"
-          role="presentation"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget) setEditingIssue(null);
-          }}
-        >
-          <div
-            className="modal-content"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="edit-issue-title"
-          >
-            <div className="modal-header">
-              <h2 id="edit-issue-title">Edit Issue</h2>
-              <button
-                type="button"
-                className="delete-btn"
-                onClick={() => setEditingIssue(null)}
-                aria-label="Close edit dialog"
-              >
-                ×
-              </button>
-            </div>
-            <form onSubmit={handleUpdateIssue} className="modal-form">
-              <label htmlFor="edit-summary">Summary</label>
-              <input
-                id="edit-summary"
-                type="text"
-                value={editingIssue.title}
-                onChange={(event) =>
-                  setEditingIssue({ ...editingIssue, title: event.target.value })
-                }
-                maxLength={200}
-                required
-              />
-
-              <label htmlFor="edit-description">Description</label>
-              <textarea
-                id="edit-description"
-                rows="4"
-                value={editingIssue.description || ''}
-                onChange={(event) =>
-                  setEditingIssue({
-                    ...editingIssue,
-                    description: event.target.value,
-                  })
-                }
-              />
-
-              <div className="modal-row">
-                <div>
-                  <label htmlFor="edit-priority">Priority</label>
-                  <select
-                    id="edit-priority"
-                    value={editingIssue.priority}
-                    onChange={(event) =>
-                      setEditingIssue({
-                        ...editingIssue,
-                        priority: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="LOW">Low</option>
-                    <option value="MEDIUM">Medium</option>
-                    <option value="HIGH">High</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label htmlFor="edit-status">Status</label>
-                  <select
-                    id="edit-status"
-                    value={editingIssue.status}
-                    onChange={(event) =>
-                      setEditingIssue({
-                        ...editingIssue,
-                        status: event.target.value,
-                      })
-                    }
-                  >
-                    <option value="TODO">To Do</option>
-                    <option value="IN_PROGRESS">In Progress</option>
-                    <option value="DONE">Done</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="modal-actions">
-                <button
-                  type="button"
-                  className="cancel-btn"
-                  onClick={() => setEditingIssue(null)}
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  className="save-btn"
-                  disabled={!editingIssue.title.trim()}
-                >
-                  Save Changes
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export default App;
