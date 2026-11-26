@@ -33,21 +33,11 @@ function Auth({ onLoginSuccess }) {
       localStorage.setItem('username', cleanUsername);
       onLoginSuccess(cleanUsername);
     } catch (err) {
-      const data = err.response?.data;
-      if (data?.username) {
-        setError(`Username: ${data.username[0]}`);
-      } else if (data?.password) {
-        setError(`Password: ${data.password[0]}`);
-      } else if (data?.detail) {
-        setError(data.detail);
-      } else if (!err.response) {
-        setError('Cannot reach server. If Render was asleep, wait 30s and click again.');
+      if (!err.response) {
+        setError('Network error: Could not reach backend.');
       } else {
-        setError(
-          isRegister
-            ? 'Registration failed. Try a unique username.'
-            : 'Invalid username or password.'
-        );
+        const data = err.response.data;
+        setError(typeof data === 'string' ? `Error ${err.response.status}` : JSON.stringify(data));
       }
     } finally {
       setLoading(false);
